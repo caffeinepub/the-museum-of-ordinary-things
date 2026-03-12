@@ -1,0 +1,222 @@
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/assets/fonts/PlayfairDisplay-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/assets/fonts/CrimsonPro-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/assets/fonts/CrimsonPro-Italic-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/InstrumentSerif-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/InstrumentSerif-Italic.woff2") format("woff2");
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Museum palette — warm, archival, paper-like */
+    --background: 0.97 0.01 80;
+    --foreground: 0.28 0.03 55;
+
+    --card: 0.95 0.015 75;
+    --card-foreground: 0.28 0.03 55;
+
+    --popover: 0.95 0.015 75;
+    --popover-foreground: 0.28 0.03 55;
+
+    --primary: 0.45 0.06 50;
+    --primary-foreground: 0.97 0.01 80;
+
+    --secondary: 0.92 0.018 72;
+    --secondary-foreground: 0.35 0.04 52;
+
+    --muted: 0.92 0.012 78;
+    --muted-foreground: 0.52 0.025 60;
+
+    --accent: 0.45 0.06 50;
+    --accent-foreground: 0.97 0.01 80;
+
+    --destructive: 0.55 0.18 25;
+    --destructive-foreground: 0.97 0.01 80;
+
+    --border: 0.82 0.02 72;
+    --input: 0.82 0.02 72;
+    --ring: 0.45 0.06 50;
+
+    /* Polaroid mount colour — warm white, slightly aged */
+    --polaroid-mount: 0.983 0.007 82;
+
+    --radius: 2px;
+
+    --chart-1: 0.55 0.09 50;
+    --chart-2: 0.62 0.07 60;
+    --chart-3: 0.7 0.05 70;
+    --chart-4: 0.45 0.06 40;
+    --chart-5: 0.38 0.06 50;
+
+    --sidebar: 0.95 0.015 75;
+    --sidebar-foreground: 0.28 0.03 55;
+    --sidebar-primary: 0.45 0.06 50;
+    --sidebar-primary-foreground: 0.97 0.01 80;
+    --sidebar-accent: 0.92 0.018 72;
+    --sidebar-accent-foreground: 0.35 0.04 52;
+    --sidebar-border: 0.82 0.02 72;
+    --sidebar-ring: 0.45 0.06 50;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Page-level warm vignette — fades edges to slightly darker paper */
+    background-color: oklch(var(--background));
+  }
+
+  body {
+    @apply text-foreground;
+    font-family: "Crimson Pro", Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.7;
+    position: relative;
+    min-height: 100vh;
+
+    /*
+     * Layered paper atmosphere:
+     * 1. Coarse grain noise — visible at ~5% opacity gives real paper texture
+     * 2. Warm amber radial wash upper-left — aged paper has uneven tone
+     * 3. Cooler, darker radial lower-right — depth and enclosure
+     * 4. Base paper colour
+     */
+    background-color: oklch(0.97 0.01 80);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E"),
+      radial-gradient(
+        ellipse 80% 50% at 15% 5%,
+        oklch(0.94 0.022 72 / 0.22) 0%,
+        transparent 65%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 90% 95%,
+        oklch(0.9 0.018 68 / 0.14) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 100% 100% at 50% 50%,
+        oklch(0.97 0.01 80) 40%,
+        oklch(0.93 0.016 75) 100%
+      );
+  }
+
+  /* Subtle page vignette — very slight darkening at the very edges */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: radial-gradient(
+      ellipse 120% 120% at 50% 50%,
+      transparent 55%,
+      oklch(0.75 0.015 70 / 0.08) 100%
+    );
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Playfair Display", "Palatino Linotype", "Book Antiqua",
+      Palatino, serif;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .font-exhibit-label {
+    font-family: "Courier New", Courier, monospace;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .font-poetic {
+    font-family: "Instrument Serif", "Palatino Linotype", Georgia, serif;
+    font-style: italic;
+  }
+}
+
+@layer components {
+  /*
+   * Polaroid frame — warm-white aged mount with thick caption strip.
+   * The photo sits inside with a hairline inset shadow separating it
+   * from the mount, exactly as in a developed print.
+   */
+  .polaroid-frame {
+    background-color: oklch(var(--polaroid-mount));
+    padding: 10px 10px 52px;
+    box-shadow: 0 2px 4px rgba(60, 42, 25, 0.12), 0 6px 20px
+      rgba(60, 42, 25, 0.14), 0 1px 2px rgba(60, 42, 25, 0.08);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  .polaroid-frame:hover {
+    box-shadow: 0 4px 8px rgba(60, 42, 25, 0.16), 0 12px 36px
+      rgba(60, 42, 25, 0.2), 0 2px 4px rgba(60, 42, 25, 0.1);
+  }
+
+  /* The photo surface inside the polaroid — inset shadow separates print from mount */
+  .polaroid-photo {
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(60, 42, 25, 0.09);
+  }
+
+  /* Caption strip below the photo — typewriter-feel label area */
+  .polaroid-caption {
+    padding: 10px 4px 0;
+  }
+
+  /*
+   * Museum wall label — constrained like a printed placard.
+   * Double-ruled border: outer + inset rule create the classic printed-card feel.
+   */
+  .exhibit-placard {
+    background-color: oklch(0.958 0.012 78);
+    border: 1px solid oklch(0.8 0.022 70);
+    box-shadow: inset 0 0 0 5px oklch(0.958 0.012 78), inset 0 0 0 6px
+      oklch(0.8 0.022 70), 0 4px 24px rgba(60, 42, 25, 0.1);
+    padding: 2.75rem 3rem 3.25rem;
+  }
+}
