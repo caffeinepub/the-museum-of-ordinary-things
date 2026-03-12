@@ -8,6 +8,7 @@ import {
 import { Nav } from "./components/Nav";
 import { Toaster } from "./components/ui/sonner";
 import { Donate } from "./pages/Donate";
+import { DonateSuccess } from "./pages/DonateSuccess";
 import { Exhibit } from "./pages/Exhibit";
 import { Gallery } from "./pages/Gallery";
 import { Home } from "./pages/Home";
@@ -63,11 +64,18 @@ const donateRoute = createRoute({
   component: Donate,
 });
 
+const donateSuccessRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/donate/success",
+  component: DonateSuccess,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   galleryRoute,
   exhibitRoute,
   donateRoute,
+  donateSuccessRoute,
 ]);
 
 const router = createRouter({ routeTree });

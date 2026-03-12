@@ -2,49 +2,37 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Shuffle } from "lucide-react";
 import { useState } from "react";
-import type { Artifact } from "../../../backend/backend";
 import { ArtifactCard } from "../components/ArtifactCard";
 import { Skeleton } from "../components/ui/skeleton";
-import { useActor } from "../hooks/useActor";
-
-const MOOD_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "nostalgic", label: "Nostalgic" },
-  { key: "funny", label: "Funny" },
-  { key: "bittersweet", label: "Bittersweet" },
-  { key: "love", label: "Love" },
-  { key: "childhood", label: "Childhood" },
-];
+import { type SupabaseArtifact, supabase } from "../lib/supabase";
 
 const SKELETON_KEYS = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 export function Gallery() {
-  const { actor, isFetching } = useActor();
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState("all");
   const [randomizing, setRandomizing] = useState(false);
 
   const { data: artifacts, isLoading } = useQuery({
-    queryKey: ["artifacts", activeFilter],
-    queryFn: async (): Promise<Artifact[]> => {
-      if (!actor) return [];
-      if (activeFilter === "all") {
-        return actor.getArtifacts();
-      }
-      return actor.getArtifactsByMood(activeFilter);
+    queryKey: ["artifacts"],
+    queryFn: async (): Promise<SupabaseArtifact[]> => {
+      const { data, error } = await supabase
+        .from("artifacts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
-    enabled: !!actor && !isFetching,
   });
 
   const handleRandom = async () => {
-    if (!actor || randomizing) return;
+    if (!artifacts || artifacts.length === 0 || randomizing) return;
     setRandomizing(true);
     try {
-      const res = await actor.getRandomArtifact();
-      if (res.length > 0 && res[0] !== undefined) {
+      const random = artifacts[Math.floor(Math.random() * artifacts.length)];
+      if (random) {
         await navigate({
           to: "/exhibit/$id",
-          params: { id: res[0].id.toString() },
+          params: { id: random.id },
         });
       }
     } finally {
@@ -66,7 +54,7 @@ export function Gallery() {
           <button
             type="button"
             onClick={handleRandom}
-            disabled={randomizing}
+            disabled={randomizing || !artifacts || artifacts.length === 0}
             data-ocid="gallery.random_button"
             className="font-exhibit-label text-[10px] tracking-widest flex items-center gap-2 border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors px-4 py-2 disabled:opacity-50"
           >
@@ -76,30 +64,11 @@ export function Gallery() {
         </div>
       </div>
 
-      {/* Mood filter tabs */}
-      <div className="flex flex-wrap gap-2 mb-10">
-        {MOOD_FILTERS.map((filter) => (
-          <button
-            type="button"
-            key={filter.key}
-            onClick={() => setActiveFilter(filter.key)}
-            data-ocid="gallery.mood_filter_tab"
-            className={`font-exhibit-label text-[10px] tracking-widest px-4 py-2 border transition-colors ${
-              activeFilter === filter.key
-                ? "bg-foreground text-background border-foreground"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground"
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-
       {/* Grid */}
       {isLoading ? (
         <div
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
-          data-ocid="gallery.artifact_grid"
+          data-ocid="gallery.loading_state"
         >
           {SKELETON_KEYS.map((k) => (
             <div key={k}>
@@ -114,17 +83,13 @@ export function Gallery() {
           data-ocid="gallery.artifact_grid"
         >
           {artifacts.map((artifact, i) => (
-            <ArtifactCard
-              key={artifact.id.toString()}
-              artifact={artifact}
-              index={i + 1}
-            />
+            <ArtifactCard key={artifact.id} artifact={artifact} index={i + 1} />
           ))}
         </div>
       ) : (
         <div className="text-center py-24" data-ocid="gallery.empty_state">
           <p className="font-display text-foreground text-2xl font-bold mb-3">
-            No artifacts in this category
+            No artifacts yet
           </p>
           <p className="font-poetic text-muted-foreground italic">
             This room of the museum awaits its first donation.

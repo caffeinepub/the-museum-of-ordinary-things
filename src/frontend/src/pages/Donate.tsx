@@ -1,8 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { ImageIcon, Loader2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
@@ -13,8 +10,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { useActor } from "../hooks/useActor";
-import { useBlobStorage } from "../hooks/useBlobStorage";
+import { supabase } from "../lib/supabase";
 
 const MOOD_OPTIONS = [
   { value: "nostalgic", label: "Nostalgic" },
@@ -28,96 +24,85 @@ const MIN_STORY = 100;
 const MAX_STORY = 1500;
 
 export function Donate() {
-  const { actor } = useActor();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { uploadBlob, isUploading, uploadProgress } = useBlobStorage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [objectName, setObjectName] = useState("");
   const [story, setStory] = useState("");
   const [mood, setMood] = useState("");
+  const [objectName, setObjectName] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [contributorName, setContributorName] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      return;
-    }
-    setPhotoFile(file);
-    const url = URL.createObjectURL(file);
-    setPhotoPreview(url);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const { error: insertError } = await supabase.from("artifacts").insert({
+        object_name: objectName,
+        story,
+        image_url: imageUrl || null,
+        contributor_name: contributorName || null,
+      });
+
+      if (insertError) throw insertError;
+
+      await queryClient.invalidateQueries({ queryKey: ["artifacts"] });
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!actor) throw new Error("Not connected");
-      if (!objectName.trim()) throw new Error("Object name is required");
-      if (story.length < MIN_STORY)
-        throw new Error(`Story must be at least ${MIN_STORY} characters`);
-
-      let imageId = "";
-      if (photoFile) {
-        imageId = await uploadBlob(photoFile);
-      }
-
-      const moodArg: [] | [string] = mood ? [mood] : [];
-      const nameArg: [] | [string] = contributorName.trim()
-        ? [contributorName.trim()]
-        : [];
-
-      return actor.submitArtifact(
-        imageId,
-        objectName.trim(),
-        story.trim(),
-        moodArg,
-        nameArg,
-      );
-    },
-    onSuccess: () => {
-      // Invalidate all artifact queries so the gallery refreshes
-      queryClient.invalidateQueries({ queryKey: ["artifacts"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      setSuccess(true);
-      setTimeout(() => {
-        navigate({ to: "/gallery" });
-      }, 3000);
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || "Submission failed. Please try again.");
-    },
-  });
-
-  if (success) {
+  if (submitted) {
     return (
       <div
-        className="max-w-xl mx-auto px-6 py-24 text-center"
+        className="max-w-2xl mx-auto px-6 py-16 text-center"
         data-ocid="donate.success_state"
       >
-        <p className="font-exhibit-label text-muted-foreground tracking-widest text-[10px] mb-6">
-          — Accepted into the Collection —
+        <p
+          className="font-exhibit-label tracking-widest"
+          style={{
+            fontSize: "9px",
+            color: "oklch(0.60 0.022 62)",
+            letterSpacing: "0.18em",
+          }}
+        >
+          — Thank You —
         </p>
-        <h2 className="font-display text-foreground text-3xl font-bold mb-4">
-          Thank You
+        <h2
+          className="font-display font-bold mt-4 mb-4"
+          style={{ fontSize: "2rem", color: "oklch(0.28 0.034 54)" }}
+        >
+          Artifact successfully donated to the museum.
         </h2>
-        <p className="font-poetic text-muted-foreground italic text-xl leading-relaxed">
-          Your artifact has been accepted into the collection. Thank you for
-          your contribution.
+        <p
+          className="font-poetic text-muted-foreground italic"
+          style={{ fontSize: "1.15rem" }}
+        >
+          It will find its place in the permanent collection.
         </p>
-        <p className="font-exhibit-label text-muted-foreground text-[10px] tracking-widest mt-8">
-          Returning to the collection…
-        </p>
+        <a
+          href="/gallery"
+          className="font-exhibit-label no-underline transition-colors mt-10 inline-block"
+          style={{
+            fontSize: "10px",
+            letterSpacing: "0.14em",
+            color: "oklch(0.52 0.025 60)",
+            borderBottom: "1px solid oklch(0.72 0.02 65)",
+            paddingBottom: "2px",
+          }}
+        >
+          Browse the Collection &#8594;
+        </a>
       </div>
     );
   }
@@ -136,82 +121,27 @@ export function Donate() {
         </p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          mutation.mutate();
-        }}
-        className="space-y-8"
-      >
-        {/* Photo upload */}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Photo URL */}
         <div className="space-y-2">
-          <Label className="font-exhibit-label tracking-widest text-[10px]">
-            Photograph of Your Artifact
-          </Label>
-          {/* Dropzone area */}
-          <div
-            data-ocid="donate.dropzone"
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed transition-colors ${
-              isDragging ? "border-foreground bg-card" : "border-border"
-            }`}
+          <Label
+            htmlFor="imageUrl"
+            className="font-exhibit-label tracking-widest text-[10px]"
           >
-            {photoPreview ? (
-              <div className="relative">
-                <img
-                  src={photoPreview}
-                  alt="Preview"
-                  className="w-full max-h-72 object-contain bg-stone-100"
-                />
-                <div className="absolute bottom-2 right-2">
-                  <button
-                    type="button"
-                    data-ocid="donate.photo_upload_button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="font-exhibit-label text-[9px] tracking-widest bg-white border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Replace Photo
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                <ImageIcon className="w-8 h-8 opacity-40" />
-                <p className="font-exhibit-label text-[10px] tracking-widest text-center">
-                  Drag & drop or click to upload
-                </p>
-                <button
-                  type="button"
-                  data-ocid="donate.photo_upload_button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="font-exhibit-label text-[9px] tracking-widest border border-border px-4 py-2 hover:border-foreground hover:text-foreground transition-colors mt-2"
-                >
-                  <Upload className="w-3 h-3 inline mr-1" />
-                  Upload Photograph
-                </button>
-              </div>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFileSelect(f);
-            }}
+            Photo URL <span className="text-muted-foreground">(Optional)</span>
+          </Label>
+          <Input
+            id="imageUrl"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            data-ocid="donate.image_url_input"
+            placeholder="https://example.com/photo.jpg"
+            type="url"
+            className="font-body text-foreground bg-background border-border focus:ring-museum-brown rounded-none"
           />
-          {isUploading && (
-            <p className="font-exhibit-label text-muted-foreground text-[10px] tracking-widest">
-              Uploading photograph… {uploadProgress}%
-            </p>
-          )}
+          <p className="font-exhibit-label text-[10px] tracking-widest text-muted-foreground">
+            Paste a direct link to a photo of your artifact
+          </p>
         </div>
 
         {/* Object name */}
@@ -224,9 +154,9 @@ export function Donate() {
           </Label>
           <Input
             id="objectName"
-            data-ocid="donate.name_input"
             value={objectName}
             onChange={(e) => setObjectName(e.target.value)}
+            data-ocid="donate.name_input"
             placeholder="What is this object?"
             required
             className="font-body text-foreground bg-background border-border focus:ring-museum-brown rounded-none"
@@ -306,30 +236,34 @@ export function Donate() {
           </Label>
           <Input
             id="contributorName"
-            data-ocid="donate.contributor_input"
             value={contributorName}
             onChange={(e) => setContributorName(e.target.value)}
+            data-ocid="donate.contributor_input"
             placeholder="Your name, or leave blank to remain Anonymous"
             className="font-body text-foreground bg-background border-border focus:ring-museum-brown rounded-none"
           />
         </div>
 
+        {/* Error */}
+        {error && (
+          <p
+            className="font-exhibit-label text-[10px] tracking-widest"
+            style={{ color: "oklch(0.55 0.15 25)" }}
+            data-ocid="donate.error_state"
+          >
+            {error}
+          </p>
+        )}
+
         {/* Submit */}
         <div className="pt-4">
           <button
             type="submit"
+            disabled={isSubmitting || story.length < MIN_STORY}
             data-ocid="donate.submit_button"
-            disabled={mutation.isPending || isUploading}
-            className="w-full font-exhibit-label tracking-widest text-[11px] px-8 py-4 bg-museum-brown text-museum-paper hover:bg-museum-brown-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full font-exhibit-label tracking-widest text-[11px] px-8 py-4 bg-museum-brown text-museum-paper hover:bg-museum-brown-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {mutation.isPending || isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {isUploading ? `Uploading… ${uploadProgress}%` : "Donating…"}
-              </>
-            ) : (
-              "Donate to the Museum"
-            )}
+            {isSubmitting ? "Donating…" : "Donate to the Museum"}
           </button>
         </div>
       </form>

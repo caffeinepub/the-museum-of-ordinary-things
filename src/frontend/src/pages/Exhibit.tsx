@@ -2,34 +2,35 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { ArtifactPlaceholder } from "../components/ArtifactCard";
-import { MoodBadge } from "../components/MoodBadge";
 import { Skeleton } from "../components/ui/skeleton";
-import { useActor } from "../hooks/useActor";
+import { supabase } from "../lib/supabase";
 
 export function Exhibit() {
   const { id } = useParams({ from: "/exhibit/$id" });
-  const { actor, isFetching } = useActor();
 
   const { data: artifact, isLoading } = useQuery({
     queryKey: ["artifact", id],
     queryFn: async () => {
-      if (!actor) return null;
-      const res = await actor.getArtifact(BigInt(id));
-      return res.length > 0 ? res[0] : null;
+      const { data, error } = await supabase
+        .from("artifacts")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) return null;
+      return data;
     },
-    enabled: !!actor && !isFetching,
   });
 
   const formattedDate = artifact
-    ? new Date(Number(artifact.submittedAt / 1_000_000n)).toLocaleDateString(
-        "en-US",
-        { year: "numeric", month: "long", day: "numeric" },
-      )
+    ? new Date(artifact.created_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "";
 
-  const exhibitNumber = id.padStart(4, "0");
-  const moodTag =
-    artifact && artifact.moodTag.length > 0 ? artifact.moodTag[0] : null;
+  // Derive a short accession number from the last 4 chars of the UUID
+  const exhibitNumber = id ? id.slice(-4).toUpperCase() : "0001";
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-16">
@@ -57,10 +58,6 @@ export function Exhibit() {
         </div>
       ) : artifact ? (
         <div>
-          {/*
-           * Exhibit number — engraved feel via low-contrast muted type,
-           * treated like a printed accession number on the wall.
-           */}
           <p
             className="font-exhibit-label text-center mb-10"
             style={{
@@ -72,21 +69,17 @@ export function Exhibit() {
             Accession No.&#160;{exhibitNumber}
           </p>
 
-          {/*
-           * Polaroid — larger on exhibit page, centered, no tilt.
-           * Let it sit squarely, as it would mounted on a wall.
-           */}
           <div className="max-w-xs mx-auto">
             <div className="polaroid-frame" style={{ paddingBottom: "56px" }}>
               <div className="polaroid-photo aspect-square">
-                {artifact.imageId ? (
+                {artifact.image_url ? (
                   <img
-                    src={artifact.imageId}
-                    alt={artifact.objectName}
+                    src={artifact.image_url}
+                    alt={artifact.object_name}
                     className="w-full h-full object-cover block"
                   />
                 ) : (
-                  <ArtifactPlaceholder name={artifact.objectName} />
+                  <ArtifactPlaceholder name={artifact.object_name} />
                 )}
               </div>
               <div className="polaroid-caption">
@@ -94,7 +87,7 @@ export function Exhibit() {
                   className="font-display font-semibold leading-tight"
                   style={{ fontSize: "13px", color: "oklch(0.30 0.03 55)" }}
                 >
-                  {artifact.objectName}
+                  {artifact.object_name}
                 </p>
                 <p
                   className="font-exhibit-label mt-1"
@@ -104,24 +97,17 @@ export function Exhibit() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  &#8212;&#160;{artifact.contributorName || "Anonymous"}
+                  &#8212;&#160;{artifact.contributor_name || "Anonymous"}
                 </p>
               </div>
             </div>
           </div>
 
-          {/*
-           * ── Museum wall label / exhibit placard ────────────────
-           * Styled as a cream printed card with a double-ruled border.
-           * Constrained to ~560px so it reads like a physical label,
-           * not a full-width webpage block.
-           */}
           <div
             className="exhibit-placard mt-12 mx-auto"
             style={{ maxWidth: "560px" }}
             data-ocid="exhibit.exhibit_panel"
           >
-            {/* Printed accession header */}
             <div className="flex items-center justify-between mb-6">
               <span
                 className="font-exhibit-label"
@@ -133,10 +119,8 @@ export function Exhibit() {
               >
                 Exhibit&#160;Label
               </span>
-              {moodTag && <MoodBadge mood={moodTag} />}
             </div>
 
-            {/* Object name — the most prominent element */}
             <h1
               className="font-display font-bold leading-tight"
               style={{
@@ -144,10 +128,9 @@ export function Exhibit() {
                 color: "oklch(0.26 0.034 54)",
               }}
             >
-              {artifact.objectName}
+              {artifact.object_name}
             </h1>
 
-            {/* Provenance metadata — small, mono, archival */}
             <div
               className="font-exhibit-label mt-4 flex flex-wrap gap-x-5 gap-y-1"
               style={{
@@ -159,7 +142,7 @@ export function Exhibit() {
               <span>
                 Contributed&#160;by&#160;
                 <span style={{ color: "oklch(0.38 0.030 54)" }}>
-                  {artifact.contributorName || "Anonymous"}
+                  {artifact.contributor_name || "Anonymous"}
                 </span>
               </span>
               <span style={{ color: "oklch(0.78 0.018 72)" }}>&#183;</span>
@@ -171,7 +154,6 @@ export function Exhibit() {
               </span>
             </div>
 
-            {/* Fine horizontal rule — like the line between label header and body */}
             <div
               style={{
                 margin: "1.75rem 0",
@@ -180,7 +162,6 @@ export function Exhibit() {
               }}
             />
 
-            {/* Story body — generous leading, comfortable measure */}
             <p
               className="font-body leading-loose whitespace-pre-wrap"
               style={{

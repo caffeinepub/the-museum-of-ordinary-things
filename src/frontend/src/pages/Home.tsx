@@ -2,46 +2,40 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArtifactCard, ArtifactCardLarge } from "../components/ArtifactCard";
 import { Skeleton } from "../components/ui/skeleton";
-import { useActor } from "../hooks/useActor";
+import { type SupabaseArtifact, supabase } from "../lib/supabase";
 
 export function Home() {
-  const { actor, isFetching } = useActor();
-
-  const { data: artifactOfDay, isLoading: aodLoading } = useQuery({
-    queryKey: ["artifactOfDay"],
-    queryFn: async () => {
-      if (!actor) return null;
-      const res = await actor.getArtifactOfTheDay();
-      return res.length > 0 ? res[0] : null;
-    },
-    enabled: !!actor && !isFetching,
-  });
-
   const { data: artifacts, isLoading: artifactsLoading } = useQuery({
     queryKey: ["artifacts"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getArtifacts();
+    queryFn: async (): Promise<SupabaseArtifact[]> => {
+      const { data, error } = await supabase
+        .from("artifacts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return data ?? [];
     },
-    enabled: !!actor && !isFetching,
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["stats"],
+  const { data: totalCount } = useQuery({
+    queryKey: ["artifacts_count"],
     queryFn: async () => {
-      if (!actor) return null;
-      return actor.getStats();
+      const { count, error } = await supabase
+        .from("artifacts")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
     },
-    enabled: !!actor && !isFetching,
   });
 
-  const latestThree = artifacts ? artifacts.slice(0, 3) : [];
+  const artifactOfDay = artifacts?.[0] ?? null;
+  const latestThree = artifacts ?? [];
 
   return (
     <div className="max-w-5xl mx-auto px-6">
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section className="pt-24 pb-20 text-center">
-        {/* Provenance line */}
         <p
           className="font-exhibit-label text-muted-foreground tracking-widest mb-8"
           style={{ fontSize: "9px", letterSpacing: "0.18em" }}
@@ -49,12 +43,6 @@ export function Home() {
           Est.&#160;in&#160;Memory&#160;&#160;&#183;&#160;&#160;Open&#160;Always
         </p>
 
-        {/*
-         * Typographic split:
-         * "The Museum of" — modest, regular weight, sets the stage
-         * "Ordinary Things" — dramatically larger italic, the emotional payload
-         * This two-speed contrast is the signature detail of the site.
-         */}
         <h1 className="font-display leading-none tracking-tight mb-2">
           <span
             className="block font-medium"
@@ -80,7 +68,6 @@ export function Home() {
           </em>
         </h1>
 
-        {/* Tagline */}
         <p
           className="font-poetic mt-6 mb-5"
           style={{
@@ -92,7 +79,6 @@ export function Home() {
           Every object remembers.
         </p>
 
-        {/* Descriptor */}
         <p
           className="font-body max-w-lg mx-auto leading-relaxed"
           style={{ fontSize: "1.1rem", color: "oklch(0.50 0.024 58)" }}
@@ -102,7 +88,6 @@ export function Home() {
           memory.
         </p>
 
-        {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
           <Link
             to="/gallery"
@@ -135,14 +120,14 @@ export function Home() {
         </div>
 
         {/* Stats */}
-        {stats && (
+        {totalCount !== undefined && totalCount > 0 && (
           <div className="mt-12 flex items-center justify-center gap-10">
             <div className="text-center">
               <p
                 className="font-display font-bold"
                 style={{ fontSize: "2rem", color: "oklch(0.30 0.032 55)" }}
               >
-                {stats.total.toString()}
+                {totalCount}
               </p>
               <p
                 className="font-exhibit-label text-muted-foreground mt-1"
@@ -151,32 +136,10 @@ export function Home() {
                 Objects Archived
               </p>
             </div>
-            <div
-              style={{
-                width: "1px",
-                height: "36px",
-                backgroundColor: "oklch(0.82 0.02 72)",
-              }}
-            />
-            <div className="text-center">
-              <p
-                className="font-display font-bold"
-                style={{ fontSize: "2rem", color: "oklch(0.30 0.032 55)" }}
-              >
-                {stats.today.toString()}
-              </p>
-              <p
-                className="font-exhibit-label text-muted-foreground mt-1"
-                style={{ fontSize: "9px", letterSpacing: "0.14em" }}
-              >
-                Stories Shared Today
-              </p>
-            </div>
           </div>
         )}
       </section>
 
-      {/* Thin section rule */}
       <div style={{ height: "1px", backgroundColor: "oklch(0.84 0.018 74)" }} />
 
       {/* ── Artifact of the Day ──────────────────────────────────── */}
@@ -196,7 +159,7 @@ export function Home() {
           </h2>
         </div>
 
-        {aodLoading ? (
+        {artifactsLoading ? (
           <div className="max-w-xs mx-auto">
             <Skeleton className="aspect-[4/3] w-full" />
             <Skeleton className="h-5 mt-4 w-3/4" />
@@ -246,14 +209,10 @@ export function Home() {
             ))}
           </div>
         ) : latestThree.length > 0 ? (
-          /*
-           * Slight vertical stagger per card — the middle card sits a little
-           * lower, as if casually placed on a table, not stacked on a shelf.
-           */
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 items-start">
             {latestThree.map((artifact, i) => (
               <div
-                key={artifact.id.toString()}
+                key={artifact.id}
                 style={{ marginTop: i === 1 ? "20px" : "0" }}
               >
                 <ArtifactCard artifact={artifact} index={i + 1} />

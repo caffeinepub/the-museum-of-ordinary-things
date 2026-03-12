@@ -1,21 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import { ImageIcon } from "lucide-react";
-import type { Artifact } from "../../../backend/backend";
-import { MoodBadge } from "./MoodBadge";
+import type { SupabaseArtifact } from "../lib/supabase";
 
 interface ArtifactCardProps {
-  artifact: Artifact;
+  artifact: SupabaseArtifact;
   index?: number;
   className?: string;
 }
 
 /**
- * Computes a stable, per-artifact tilt in degrees.
- * Range: roughly –1.6° to +1.6° — subtle enough to feel organic,
- * not so much that it looks like a bug.
+ * Computes a stable, per-artifact tilt in degrees based on UUID string.
+ * Range: roughly –1.6° to +1.6°
  */
-function polaroidTilt(id: bigint): number {
-  const n = Number(id % 11n); // 0–10
+function polaroidTilt(id: string): number {
+  const n = (id.charCodeAt(0) || 0) % 11; // 0–10
   return (n - 5) * 0.32; // –1.6 to +1.6
 }
 
@@ -49,52 +47,40 @@ export function ArtifactCard({
   className = "",
 }: ArtifactCardProps) {
   const ocidSuffix = index !== undefined ? `.${index}` : "";
-  const moodTag = artifact.moodTag.length > 0 ? artifact.moodTag[0] : null;
   const tilt = polaroidTilt(artifact.id);
 
   return (
     <Link
       to="/exhibit/$id"
-      params={{ id: artifact.id.toString() }}
+      params={{ id: artifact.id }}
       data-ocid={`gallery.artifact.item${ocidSuffix}`}
       className={`group block no-underline ${className}`}
       style={{ display: "block" }}
     >
-      {/*
-       * Polaroid frame — warm-white mount, thick bottom strip.
-       * Base tilt is per-artifact; hover straightens + lifts.
-       */}
       <div
         className="polaroid-frame"
         style={{ transform: `rotate(${tilt}deg)` }}
       >
-        {/* Photo surface — inset shadow simulates print edge */}
         <div className="polaroid-photo aspect-square">
-          {artifact.imageId ? (
+          {artifact.image_url ? (
             <img
-              src={artifact.imageId}
-              alt={artifact.objectName}
+              src={artifact.image_url}
+              alt={artifact.object_name}
               className="w-full h-full object-cover block"
               loading="lazy"
             />
           ) : (
-            <ArtifactPlaceholder name={artifact.objectName} />
+            <ArtifactPlaceholder name={artifact.object_name} />
           )}
         </div>
 
-        {/* Caption strip */}
         <div className="polaroid-caption">
           <p
             className="font-display font-semibold leading-tight truncate"
             style={{ fontSize: "13px", color: "oklch(0.30 0.03 55)" }}
           >
-            {artifact.objectName}
+            {artifact.object_name}
           </p>
-          {moodTag && (
-            <div className="mt-1.5">
-              <MoodBadge mood={moodTag} />
-            </div>
-          )}
           <p
             className="mt-1.5 font-body leading-snug line-clamp-2"
             style={{
@@ -112,27 +98,26 @@ export function ArtifactCard({
   );
 }
 
-export function ArtifactCardLarge({ artifact }: { artifact: Artifact }) {
-  const moodTag = artifact.moodTag.length > 0 ? artifact.moodTag[0] : null;
-
+export function ArtifactCardLarge({
+  artifact,
+}: { artifact: SupabaseArtifact }) {
   return (
     <Link
       to="/exhibit/$id"
-      params={{ id: artifact.id.toString() }}
+      params={{ id: artifact.id }}
       data-ocid="home.artifact_of_day_card"
       className="block no-underline group"
     >
-      {/* Slightly more generous padding for the featured card */}
       <div className="polaroid-frame" style={{ paddingBottom: "64px" }}>
         <div className="polaroid-photo aspect-[4/3]">
-          {artifact.imageId ? (
+          {artifact.image_url ? (
             <img
-              src={artifact.imageId}
-              alt={artifact.objectName}
+              src={artifact.image_url}
+              alt={artifact.object_name}
               className="w-full h-full object-cover block"
             />
           ) : (
-            <ArtifactPlaceholder name={artifact.objectName} />
+            <ArtifactPlaceholder name={artifact.object_name} />
           )}
         </div>
 
@@ -142,9 +127,8 @@ export function ArtifactCardLarge({ artifact }: { artifact: Artifact }) {
               className="font-display font-bold leading-tight"
               style={{ fontSize: "17px", color: "oklch(0.28 0.03 55)" }}
             >
-              {artifact.objectName}
+              {artifact.object_name}
             </h3>
-            {moodTag && <MoodBadge mood={moodTag} />}
           </div>
           <p
             className="mt-1 font-exhibit-label"
@@ -154,7 +138,7 @@ export function ArtifactCardLarge({ artifact }: { artifact: Artifact }) {
               letterSpacing: "0.08em",
             }}
           >
-            &#8212; {artifact.contributorName || "Anonymous"}
+            &#8212; {artifact.contributor_name || "Anonymous"}
           </p>
           <p
             className="mt-2.5 font-body leading-relaxed line-clamp-3"
