@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
@@ -30,6 +30,7 @@ const MAX_STORY = 1500;
 export function Donate() {
   const { actor } = useActor();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { uploadBlob, isUploading, uploadProgress } = useBlobStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +86,9 @@ export function Donate() {
       );
     },
     onSuccess: () => {
+      // Invalidate all artifact queries so the gallery refreshes
+      queryClient.invalidateQueries({ queryKey: ["artifacts"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
       setSuccess(true);
       setTimeout(() => {
         navigate({ to: "/gallery" });
